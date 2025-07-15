@@ -1,6 +1,6 @@
 // lib/saveToMongo.ts
 
-import clientPromise from "/mongodb";
+import clientPromise from "@/lib/mongodb";
 
 export async function saveToMongo(url: string, fullText: string) {
   try {
