@@ -1,41 +1,97 @@
 // lib/scrape.ts
 
-export async function scrapeBlogText(url: string): Promise<string> {
-  const dummyContent: Record<string, string> = {
-    "https://example.com/ai-future": `
-      Artificial Intelligence is transforming every industry...
-      From healthcare to education, the potential is endless...
-      However, ethical concerns must be addressed responsibly...
-    `,
-    "https://example.com/startup-success": `
-      Launching a startup requires vision, persistence, and market timing...
-      Customer feedback is key to iterate your product...
-      Founders must embrace uncertainty and rapid experimentation...
-    `,
-    "https://example.com/productivity-hacks": `
-      Productivity isn't about doing more, it's about doing what matters...
-      Time blocking and deep work sessions can help you stay focused...
-      Avoid multitasking — it's a myth that it increases efficiency...
-    `,
-    "https://example.com/mental-health-awareness": `
-      Mental health is as important as physical health...
-      Regular breaks, mindfulness, and support systems matter...
-      Let's break the stigma and talk openly about our struggles...
-    `,
-    "https://example.com/remote-work-future": `
-      Remote work is here to stay for many industries...
-      Flexibility boosts employee satisfaction and retention...
-      But boundaries and communication norms are essential...
-    `,
-    "https://example.com/blockchain-potential": `
-      Blockchain offers trustless transactions and decentralization...
-      Beyond crypto, it can revolutionize supply chains and identity verification...
-      Regulation and scalability remain key challenges moving forward...
-    `
-  };
+import * as cheerio from "cheerio"
+import fetch from "node-fetch"
 
-  return (
-    dummyContent[url.trim()] ||
-    `This is a placeholder blog content for the URL: ${url}. Replace this with actual scraping logic later.`
-  )
+export async function scrapeBlogText(url: string): Promise<string> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`)
+
+    const html = await response.text()
+    const $ = cheerio.load(html)
+
+    // Remove unwanted/hidden content
+    $("header, footer, nav, aside, script, style, noscript").remove()
+    $("[style*='display:none']").remove()
+    $("[aria-hidden='true']").remove()
+
+    const selectors = ["article", "main", ".post", ".content", ".blog-content", ".entry-content"]
+    let content = ""
+
+    for (const selector of selectors) {
+      if ($(selector).length) {
+        content = $(selector).text()
+        break
+      }
+    }
+
+    if (!content || content.length < 100) {
+      const paragraphs: string[] = []
+      $("p").each((_, el) => {
+        const text = $(el).text().trim()
+        if (text.length > 50 && !text.match(/(sign up|subscribe|404|menu|read more|cookies|Medium Logo|terms)/i)) {
+          paragraphs.push(text)
+        }
+      })
+      content = paragraphs.slice(0, 12).join("\n\n")
+    }
+
+    content = content.replace(/\s{2,}/g, " ").trim()
+
+    if (!content || content.length < 50) {
+      throw new Error("No valid blog content found.")
+    }
+
+    return content
+  } catch (error) {
+    console.error("Scraping failed:", error)
+    return "Failed to extract meaningful blog content."
+  }
+}
+
+export async function scrapeBlogTitle(url: string): Promise<string> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`)
+
+    const html = await response.text()
+    const $ = cheerio.load(html)
+
+    const ogTitle = $("meta[property='og:title']").attr("content")
+    if (ogTitle) return ogTitle.trim()
+
+    const pageTitle = $("title").text().trim()
+    if (pageTitle) return pageTitle
+
+    for (const selector of ["h1", "h2", "h3"]) {
+      const heading = $(selector).first().text().trim()
+      if (heading) return heading
+    }
+
+    return "No title found"
+  } catch (error) {
+    console.error("Title scraping failed:", error)
+    return "Failed to extract blog title."
+  }
+}
+export async function scrapeBlogImage(url: string): Promise<string> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`)
+
+    const html = await response.text()
+    const $ = cheerio.load(html)
+
+    const ogImage = $("meta[property='og:image']").attr("content")
+    if (ogImage) return ogImage
+
+    const imgSrc = $("img").first().attr("src")
+    if (imgSrc) return imgSrc
+
+    return "No image found"
+  } catch (error) {
+    console.error("Image scraping failed:", error)
+    return "Failed to extract blog image."
+  }
 }
