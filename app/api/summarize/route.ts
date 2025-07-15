@@ -23,11 +23,8 @@ export async function POST(req: NextRequest) {
     console.log("✅ Inserted into MongoDB:", result.insertedId);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("❌ MongoDB Error:", error?.message || error);
-    return NextResponse.json(
-      { error: "Failed to save", details: error?.message || String(error) },
-      { status: 500 }
-    );
+  } catch (error) {
+  console.error("MongoDB Error:", error);
+  return NextResponse.json({ error: "Failed to save", details: String(error) }, { status: 500 });
   }
 }
